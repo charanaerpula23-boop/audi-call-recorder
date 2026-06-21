@@ -1,0 +1,6 @@
+{
+  "name": "ActiveDial",
+  "description": "A smart dialer and call recording app using accessibility services.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

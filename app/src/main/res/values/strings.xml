@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">ActiveDial</string>
+    <string name="accessibility_description">Required to detect when a call begins or ends to automatically start/stop recording.</string>
+    <string name="cache_breaker">1</string>
+</resources>
