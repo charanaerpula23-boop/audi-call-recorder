@@ -12,9 +12,7 @@ data class CallRecord(
     val timestamp: Long,
     val durationMillis: Long,
     val filePath: String,
-    val isIncoming: Boolean,
-    val transcription: String? = null,
-    val summary: String? = null
+    val isIncoming: Boolean
 ) {
     val file: File
         get() = File(filePath)

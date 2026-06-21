@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.content.Intent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -29,10 +30,18 @@ import java.util.*
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Description
-
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Dialpad
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Settings
 
+import androidx.compose.material.icons.filled.Save
+
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.material3.surfaceColorAtElevation
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun RecordsScreen(
     viewModel: MainViewModel,
@@ -40,60 +49,115 @@ fun RecordsScreen(
 ) {
     val records by viewModel.records.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val selectedRecords = remember { mutableStateListOf<CallRecord>() }
+    val isSelectionMode = selectedRecords.isNotEmpty()
+    val context = LocalContext.current
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { /* Handle dialer action */ },
+            ExtendedFloatingActionButton(
+                onClick = { 
+                    try {
+                        context.startActivity(Intent(Intent.ACTION_DIAL))
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.Dialpad, contentDescription = "Dialer")
-            }
+                shape = RoundedCornerShape(16.dp),
+                icon = { Icon(Icons.Default.Dialpad, contentDescription = "Dialer") },
+                text = { Text("Open Dialer") }
+            )
         },
         topBar = {
-            @OptIn(ExperimentalMaterial3Api::class)
-            TopAppBar(
-                title = { 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Call Recordings", style = MaterialTheme.typography.titleLarge)
-                        Spacer(modifier = Modifier.weight(1f))
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = RoundedCornerShape(6.dp),
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+            if (isSelectionMode) {
+                TopAppBar(
+                    title = { Text("${selectedRecords.size} Selected") },
+                    navigationIcon = {
+                        IconButton(onClick = { selectedRecords.clear() }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear selection")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            viewModel.exportToDownloads(selectedRecords)
+                            selectedRecords.clear()
+                            android.widget.Toast.makeText(context, "Saved to Downloads", android.widget.Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.Save, contentDescription = "Save to Downloads")
+                        }
+                        IconButton(onClick = {
+                            val uris = selectedRecords.map {
+                                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it.file)
+                            }
+                            val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                type = "audio/mp4"
+                                putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Share Recordings"))
+                            selectedRecords.clear()
+                        }) {
+                            Icon(Icons.Default.Share, contentDescription = "Share")
+                        }
+                        IconButton(onClick = { 
+                            viewModel.deleteRecords(selectedRecords)
+                            selectedRecords.clear() 
+                        }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                )
+            } else {
+                TopAppBar(
+                    title = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Call Recordings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.width(12.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = RoundedCornerShape(percent = 50)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50))
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    "SERVICE ACTIVE",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50))
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        "ACTIVE",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
                             }
                         }
-                    }
-                },
-                actions = {
-                    TextButton(onClick = onNavigateToSettings) {
-                        Text("Settings")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    },
+                    actions = {
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    scrollBehavior = scrollBehavior
                 )
-            )
+            }
         }
     ) { padding ->
         Column(
@@ -102,7 +166,7 @@ fun RecordsScreen(
                 .padding(padding)
         ) {
             // Search Bar
-            OutlinedTextField(
+            TextField(
                 value = searchQuery,
                 onValueChange = { viewModel.updateSearchQuery(it) },
                 modifier = Modifier
@@ -120,24 +184,39 @@ fun RecordsScreen(
                     }
                 },
                 shape = RoundedCornerShape(percent = 50),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
                 ),
                 singleLine = true
             )
 
             if (records.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        if (searchQuery.isNotEmpty()) "No matching recordings found." else "No recordings yet.\nMake sure Auto-Record and Accessibility are enabled.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(32.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Surface(
+                            modifier = Modifier.size(80.dp),
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Icon(
+                                imageVector = if (searchQuery.isNotEmpty()) Icons.Default.Search else Icons.Default.Mic,
+                                contentDescription = null,
+                                modifier = Modifier.padding(24.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            if (searchQuery.isNotEmpty()) "No matching recordings found." else "No recordings yet.\nMake sure Auto-Record and Accessibility are enabled.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 32.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
@@ -146,9 +225,15 @@ fun RecordsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(records, key = { it.id }) { record ->
+                        val isSelected = selectedRecords.contains(record)
                         RecordItem(
                             record = record,
                             viewModel = viewModel,
+                            isSelected = isSelected,
+                            isSelectionMode = isSelectionMode,
+                            onSelect = { select ->
+                                if (select) selectedRecords.add(record) else selectedRecords.remove(record)
+                            },
                             onPlay = { viewModel.playAudio(it) },
                             onDelete = { viewModel.deleteRecord(it) }
                         )
@@ -159,17 +244,23 @@ fun RecordsScreen(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun RecordItem(
     record: CallRecord,
     viewModel: MainViewModel,
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    onSelect: (Boolean) -> Unit,
     onPlay: (String) -> Unit,
     onDelete: (CallRecord) -> Unit
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
-    val isTranscribing by viewModel.isTranscribing.collectAsState()
-    val isTranscribingThis = isTranscribing.contains(record.id)
+    
+    val playingFile by viewModel.playingFile.collectAsState()
+    val isPlaying by viewModel.isPlaying.collectAsState()
+    val isPlayingThis = playingFile == record.filePath && isPlaying
 
     if (showDialog) {
         AlertDialog(
@@ -191,42 +282,73 @@ fun RecordItem(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onLongClick = { onSelect(!isSelected) },
+                onClick = {
+                    if (isSelectionMode) {
+                        onSelect(!isSelected)
+                    }
+                }
+            ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+        colors = CardDefaults.cardColors(containerColor = if (isSelected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val displayName = record.contactName ?: record.phoneNumber
+                val initial = displayName.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar() ?: '?'
+                val avatarColor = if (record.isIncoming) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.tertiaryContainer
+                val avatarOnColor = if (record.isIncoming) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onTertiaryContainer
+                
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .background(
-                            if (record.isIncoming) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-                            RoundedCornerShape(16.dp)
-                        ),
+                        .background(avatarColor, androidx.compose.foundation.shape.CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = if (record.isIncoming) Icons.AutoMirrored.Filled.CallReceived else Icons.AutoMirrored.Filled.CallMade,
-                        contentDescription = if (record.isIncoming) "Incoming" else "Outgoing",
-                        tint = if (record.isIncoming) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                    Text(
+                        text = initial.toString(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = avatarOnColor
                     )
+                    
+                    // Small direction badge
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 4.dp, y = 4.dp)
+                            .size(20.dp)
+                            .background(MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape)
+                            .padding(2.dp)
+                            .background(if (record.isIncoming) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error, androidx.compose.foundation.shape.CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (record.isIncoming) Icons.AutoMirrored.Filled.CallReceived else Icons.AutoMirrored.Filled.CallMade,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = record.contactName ?: record.phoneNumber,
+                        text = displayName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     
-                    val dateStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(record.timestamp))
+                    val dateStr = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(record.timestamp))
                     val minutes = (record.durationMillis / 1000) / 60
                     val seconds = (record.durationMillis / 1000) % 60
                     Text(
-                        text = "${if (record.isIncoming) "Incoming" else "Outgoing"} • $dateStr • ${String.format("%02d:%02d", minutes, seconds)} recorded",
+                        text = "$dateStr • ${String.format("%02d:%02d", minutes, seconds)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -236,39 +358,15 @@ fun RecordItem(
                     FilledIconButton(
                         onClick = { onPlay(record.filePath) },
                         colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            containerColor = if (isPlayingThis) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isPlayingThis) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Play")
+                        Icon(if (isPlayingThis) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = if (isPlayingThis) "Pause" else "Play")
                     }
                 }
             }
             
-            if (record.summary != null || record.transcription != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "AI Summary",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = record.summary ?: record.transcription ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(12.dp))
             
             Row(
@@ -276,20 +374,6 @@ fun RecordItem(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (record.summary == null) {
-                    TextButton(
-                        onClick = { viewModel.transcribeRecording(record) },
-                        enabled = !isTranscribingThis
-                    ) {
-                        if (isTranscribingThis) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.Description, contentDescription = "Transcribe AI", modifier = Modifier.size(18.dp))
-                        }
-                        Spacer(Modifier.width(4.dp))
-                        Text(if (isTranscribingThis) "Processing..." else "Transcribe")
-                    }
-                }
                 TextButton(onClick = {
                     try {
                         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", record.file)

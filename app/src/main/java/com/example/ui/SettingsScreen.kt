@@ -11,10 +11,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.material3.surfaceColorAtElevation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,8 +30,10 @@ fun SettingsScreen(
 ) {
     val isAutoRecordEnabled by viewModel.isAutoRecordEnabled.collectAsState()
     val context = LocalContext.current
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
@@ -35,8 +43,10 @@ fun SettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+                ),
+                scrollBehavior = scrollBehavior
             )
         }
     ) { padding ->
@@ -88,8 +98,71 @@ fun SettingsScreen(
                             )
                         }
                         Switch(
-                            checked = isRecordVoipCallsEnabled,
-                            onCheckedChange = { viewModel.setRecordVoipCalls(it) }
+                             checked = isRecordVoipCallsEnabled,
+                             onCheckedChange = { viewModel.setRecordVoipCalls(it) }
+                        )
+                    }
+                }
+            }
+
+            // Record Mode Selection
+            val recordMode by viewModel.recordMode.collectAsState()
+            var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { expanded = true }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Record Only", style = MaterialTheme.typography.titleMedium)
+                            val modeText = when (recordMode) {
+                                com.example.data.RecordMode.ALL_NUMBERS -> "All Numbers"
+                                com.example.data.RecordMode.UNKNOWN_NUMBERS -> "Unknown Numbers"
+                                com.example.data.RecordMode.SELECTED_CONTACTS -> "Selected Contacts"
+                            }
+                            Text(
+                                modeText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Mode")
+                    }
+                    
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.fillMaxWidth(0.8f)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("All Numbers") },
+                            onClick = { 
+                                viewModel.setRecordMode(com.example.data.RecordMode.ALL_NUMBERS)
+                                expanded = false 
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Unknown Numbers") },
+                            onClick = { 
+                                viewModel.setRecordMode(com.example.data.RecordMode.UNKNOWN_NUMBERS)
+                                expanded = false 
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Selected Contacts") },
+                            onClick = { 
+                                viewModel.setRecordMode(com.example.data.RecordMode.SELECTED_CONTACTS)
+                                expanded = false 
+                            }
                         )
                     }
                 }

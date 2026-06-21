@@ -106,7 +106,7 @@ class CallAccessibilityService : AccessibilityService() {
                     
                     if (isInCommunication && !isRecording) {
                         val appName = if (packageName == "com.whatsapp") "WhatsApp" else "Instagram"
-                        startRecordingService("$appName Call", isIncoming = false)
+                        startRecordingService("$appName Call", incoming = false)
                         isRecording = true
                         currentVoipPackage = packageName
                     }

@@ -18,8 +18,9 @@ import com.example.data.CallRecordRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import android.net.Uri
+import android.provider.ContactsContract
 import java.io.File
-import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,6 +54,23 @@ class CallRecordingService : Service() {
         val dao = AppDatabase.getDatabase(this).callRecordDao()
         repository = CallRecordRepository(dao)
         createNotificationChannel()
+    }
+
+    private fun getContactName(phoneNumber: String, context: Context): String? {
+        if (phoneNumber == "Unknown" || phoneNumber.isBlank()) return null
+        var name: String? = null
+        try {
+            val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber))
+            val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
+            context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    name = cursor.getString(0)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed resolving contact name", e)
+        }
+        return name
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -170,9 +188,10 @@ class CallRecordingService : Service() {
     private fun saveRecordToDatabase() {
         if (currentFilePath != null) {
             val duration = System.currentTimeMillis() - startTimeMillis
+            val name = getContactName(phoneNumber, this)
             val record = CallRecord(
                 phoneNumber = phoneNumber,
-                contactName = null, // Could resolve via ContactsContract here
+                contactName = name,
                 timestamp = startTimeMillis,
                 durationMillis = duration,
                 filePath = currentFilePath!!,

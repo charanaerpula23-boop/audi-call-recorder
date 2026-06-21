@@ -39,6 +39,8 @@ class MainActivity : ComponentActivity() {
                 val permissions = mutableListOf(
                     Manifest.permission.RECORD_AUDIO,
                     Manifest.permission.READ_PHONE_STATE,
+                    Manifest.permission.READ_CALL_LOG,
+                    Manifest.permission.READ_CONTACTS
                 )
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     permissions.add(Manifest.permission.POST_NOTIFICATIONS)
